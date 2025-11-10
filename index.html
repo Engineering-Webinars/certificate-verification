@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Certificate Verification | Engineering Webinars</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{--fg:#111827;--muted:#6b7280;--ok:#0a7d32;--bad:#b00020;--card:#ffffff;--bg:#f8fafc}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    .wrap{max-width:880px;margin:36px auto;padding:0 16px}
+    h1{margin:0 0 8px}
+    .muted{color:var(--muted)}
+    .card{background:var(--card);border:1px solid #e5e7eb;border-radius:14px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+    .row{margin:8px 0}
+    .ok{color:var(--ok);font-weight:700}
+    .bad{color:var(--bad);font-weight:700}
+    code{background:#f3f4f6;padding:2px 6px;border-radius:6px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+    a.btn{display:inline-block;margin-top:8px;padding:8px 12px;border-radius:8px;border:1px solid #e5e7eb;text-decoration:none;color:var(--fg)}
+    footer{margin:30px 0;color:var(--muted);font-size:14px}
+    input[type=text]{padding:10px;border:1px solid #e5e7eb;border-radius:8px;width:260px}
+    button{padding:10px 14px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;cursor:pointer}
+    .search{display:flex;gap:8px;margin:12px 0 18px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Certificate Verification</h1>
+    <p class="muted">Scan the QR on a certificate, or enter the Certificate ID below.</p>
+
+    <div class="search">
+      <input id="idInput" type="text" placeholder="e.g. GIS-2025-001" />
+      <button onclick="go()">Verify</button>
+    </div>
+
+    <div id="status" class="row muted">Waiting for ID…</div>
+    <div id="result" class="card" style="display:none"></div>
+
+    <footer>© Engineering Webinars — Verification hosted on GitHub Pages.</footer>
+  </div>
+
+  <script>
+    const qs = new URLSearchParams(location.search);
+    const field = document.getElementById('idInput');
+    const statusEl = document.getElementById('status');
+    const resultEl = document.getElementById('result');
+
+    function go(){
+      const id = field.value.trim();
+      if(!id){ field.focus(); return; }
+      const url = new URL(location.href);
+      url.searchParams.set('id', id);
+      location.href = url.toString();
+    }
+
+    const id = (qs.get('id') || '').trim();
+    if(id){
+      field.value = id;
+      verify(id);
+    }
+
+    function verify(certId){
+      statusEl.textContent = 'Fetching certificate…';
+      // Works on GitHub Pages because files are served from same origin:
+      const jsonUrl = `certs/${encodeURIComponent(certId)}.json?t=${Date.now()}`;
+      fetch(jsonUrl)
+        .then(r => { if(!r.ok) throw new Error('not found'); return r.json(); })
+        .then(data => {
+          statusEl.innerHTML = '<span class="ok">VALID certificate</span>';
+          resultEl.style.display = 'block';
+          resultEl.innerHTML = `
+            <div class="grid">
+              <div><strong>Name</strong><div>${escapeHTML(data.name||'')}</div></div>
+              <div><strong>Seminar</strong><div>${escapeHTML(data.course||'')}</div></div>
+              <div><strong>Issued</strong><div>${escapeHTML(data.issueDate||'')}</div></div>
+              <div><strong>Certificate ID</strong><div>${escapeHTML(data.id||'')}</div></div>
+              ${data.duration ? `<div><strong>Duration</strong><div>${escapeHTML(String(data.duration))} h</div></div>` : ''}
+              ${data.instructor ? `<div><strong>Instructor</strong><div>${escapeHTML(data.instructor)}</div></div>` : ''}
+            </div>
+            ${data.pdfUrl ? `<a class="btn" target="_blank" rel="noopener" href="${escapeAttr(data.pdfUrl)}">Open certificate (PDF)</a>` : ''}
+          `;
+        })
+        .catch(() => {
+          statusEl.innerHTML = '<span class="bad">INVALID certificate</span> (ID not found)';
+          resultEl.style.display = 'none';
+        });
+    }
+
+    function escapeHTML(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function escapeAttr(s){ return String(s).replace(/"/g,'%22'); }
+  </script>
+</body>
+</html>
